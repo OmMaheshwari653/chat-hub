@@ -4,6 +4,7 @@ import { ReactNode, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { SidebarSkeleton } from "@/components/Skeletons";
 
 export default function ProtectedLayout({ children }: { children: ReactNode }) {
   const { user, isLoaded } = useUser();
@@ -54,8 +55,26 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
 
   if (!isLoaded) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+      <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+        {/* Skeleton sidebar while auth loads */}
+        <div className="hidden w-80 border-r border-gray-200 bg-white md:block dark:border-gray-700 dark:bg-gray-800">
+          <div className="flex h-16 items-center gap-3 border-b border-gray-200 px-4 dark:border-gray-700">
+            <div className="h-10 w-10 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700" />
+            <div className="space-y-2">
+              <div className="h-3.5 w-24 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+              <div className="h-3 w-16 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+            </div>
+          </div>
+          <SidebarSkeleton />
+        </div>
+
+        {/* Center spinner for main area */}
+        <div className="flex flex-1 items-center justify-center">
+          <div className="text-center">
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+            <p className="mt-3 text-sm text-gray-500">Loading your chats...</p>
+          </div>
+        </div>
       </div>
     );
   }

@@ -7,6 +7,13 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { UserAvatar } from "./UserAvatar";
 import { cn, formatMessageTime, getDisplayName } from "@/lib/utils";
+import { ChatViewSkeleton } from "./Skeletons";
+import {
+  ErrorBanner,
+  InlineError,
+  OfflineBanner,
+  useNetworkStatus,
+} from "./ErrorStates";
 
 const EMOJI_REACTIONS = ["👍", "❤️", "😂", "😮", "😢"];
 
@@ -26,11 +33,16 @@ export function ChatView({ conversationId }: ChatViewProps) {
 
   const [input, setInput] = useState("");
   const [showScrollBtn, setShowScrollBtn] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [pendingMsg, setPendingMsg] = useState<string | null>(null);
   const [reactionMenuId, setReactionMenuId] = useState<Id<"messages"> | null>(
     null,
   );
+
+  // Error and retry tracking
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [failedMessage, setFailedMessage] = useState<string | null>(null);
+  const [pendingMsg, setPendingMsg] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const isOnline = useNetworkStatus();
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -66,7 +78,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
   // Handle typing + send typing indicator
   const handleInputChange = (value: string) => {
     setInput(value);
-    setError(null);
+    setSendError(null);
 
     if (value.trim()) {
       setTyping({ conversationId, isTyping: true });
@@ -79,33 +91,62 @@ export function ChatView({ conversationId }: ChatViewProps) {
     }
   };
 
-  // Send message
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const content = input.trim();
+  // Send message (or retry a previously failed one)
+  const handleSend = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    // Use failed message if we're retrying, otherwise take from input
+    const content = failedMessage || input.trim();
     if (!content) return;
 
     setInput("");
+    setFailedMessage(null);
     setPendingMsg(content);
-    setError(null);
+    setSendError(null);
 
     try {
       await sendMessage({ conversationId, content });
       setPendingMsg(null);
     } catch {
-      setError("Failed to send. Click to retry.");
+      // Keep the failed message around so user can retry easily
+      setSendError("Message failed to send");
+      setFailedMessage(content);
       setPendingMsg(null);
-      setInput(content);
     }
   };
 
-  // Loading state
+  // Retry sending the failed message
+  const handleRetry = () => {
+    if (failedMessage) {
+      handleSend();
+    }
+  };
+
+  // Wrapper for delete/reaction with error handling
+  const handleDelete = async (messageId: Id<"messages">) => {
+    try {
+      setActionError(null);
+      await deleteMessage({ messageId });
+    } catch {
+      setActionError("Couldn't delete message. Try again.");
+      // auto-dismiss after 4 seconds
+      setTimeout(() => setActionError(null), 4000);
+    }
+  };
+
+  const handleReaction = async (messageId: Id<"messages">, emoji: string) => {
+    try {
+      setActionError(null);
+      await toggleReaction({ messageId, emoji });
+    } catch {
+      setActionError("Couldn't add reaction. Try again.");
+      setTimeout(() => setActionError(null), 4000);
+    }
+  };
+
+  // Show skeleton while conversation data loads
   if (!conversation) {
-    return (
-      <div className="flex h-full items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
-      </div>
-    );
+    return <ChatViewSkeleton />;
   }
 
   const otherUser = conversation.participants[0];
@@ -154,6 +195,15 @@ export function ChatView({ conversationId }: ChatViewProps) {
         </div>
       </header>
 
+      {/* Network and action error banners */}
+      <OfflineBanner />
+      {actionError && (
+        <ErrorBanner
+          message={actionError}
+          onDismiss={() => setActionError(null)}
+        />
+      )}
+
       {/* Messages */}
       <div
         ref={scrollRef}
@@ -161,7 +211,15 @@ export function ChatView({ conversationId }: ChatViewProps) {
         className="flex-1 overflow-y-auto p-4"
       >
         <div className="mx-auto max-w-3xl space-y-4">
-          {!messages || messages.length === 0 ? (
+          {/* Messages still loading — show a small spinner */}
+          {messages === undefined ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+              <span className="ml-3 text-sm text-gray-500">
+                Loading messages...
+              </span>
+            </div>
+          ) : messages.length === 0 ? (
             <div className="flex flex-col items-center py-12 text-center">
               {conversation.isGroup ? (
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-linear-to-br from-blue-500 to-purple-500 text-2xl font-medium text-white">
@@ -188,10 +246,8 @@ export function ChatView({ conversationId }: ChatViewProps) {
               <MessageBubble
                 key={msg._id}
                 message={msg}
-                onDelete={() => deleteMessage({ messageId: msg._id })}
-                onReact={(emoji) =>
-                  toggleReaction({ messageId: msg._id, emoji })
-                }
+                onDelete={() => handleDelete(msg._id)}
+                onReact={(emoji) => handleReaction(msg._id, emoji)}
                 showReactionMenu={reactionMenuId === msg._id}
                 onToggleReactionMenu={() =>
                   setReactionMenuId(reactionMenuId === msg._id ? null : msg._id)
@@ -200,12 +256,32 @@ export function ChatView({ conversationId }: ChatViewProps) {
             ))
           )}
 
-          {/* Optimistic pending message */}
+          {/* Optimistic pending message — faded to show it's in progress */}
           {pendingMsg && (
             <div className="flex justify-end">
-              <div className="max-w-xs rounded-2xl rounded-tr-sm bg-blue-500 px-4 py-2 opacity-70">
+              <div className="max-w-xs rounded-2xl rounded-tr-sm bg-blue-500 px-4 py-2 opacity-60">
                 <p className="text-sm text-white">{pendingMsg}</p>
-                <p className="mt-1 text-xs text-blue-200">Sending...</p>
+                <div className="mt-1 flex items-center gap-1.5">
+                  <div className="h-3 w-3 animate-spin rounded-full border-2 border-blue-200 border-t-transparent" />
+                  <span className="text-xs text-blue-200">Sending...</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Failed message — shown in red with retry button */}
+          {failedMessage && !pendingMsg && (
+            <div className="flex justify-end">
+              <div className="max-w-xs">
+                <div className="rounded-2xl rounded-tr-sm border border-red-300 bg-red-50 px-4 py-2 dark:border-red-700 dark:bg-red-900/20">
+                  <p className="text-sm text-red-800 dark:text-red-300">
+                    {failedMessage}
+                  </p>
+                </div>
+                <InlineError
+                  message={sendError || "Failed to send"}
+                  onRetry={handleRetry}
+                />
               </div>
             </div>
           )}
@@ -239,16 +315,6 @@ export function ChatView({ conversationId }: ChatViewProps) {
 
       {/* Input area */}
       <div className="border-t border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-        {error && (
-          <div className="mx-auto mb-2 max-w-3xl">
-            <button
-              onClick={handleSend}
-              className="w-full rounded-lg bg-red-50 p-2 text-sm text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400"
-            >
-              {error}
-            </button>
-          </div>
-        )}
         <form
           onSubmit={handleSend}
           className="mx-auto flex max-w-3xl items-center gap-3"
@@ -257,12 +323,13 @@ export function ChatView({ conversationId }: ChatViewProps) {
             type="text"
             value={input}
             onChange={(e) => handleInputChange(e.target.value)}
-            placeholder="Type a message..."
-            className="flex-1 rounded-full border-0 bg-gray-100 px-4 py-3 text-sm text-gray-900 placeholder-gray-500 focus:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
+            placeholder={!isOnline ? "You're offline..." : "Type a message..."}
+            disabled={!isOnline}
+            className="flex-1 rounded-full border-0 bg-gray-100 px-4 py-3 text-sm text-gray-900 placeholder-gray-500 focus:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
           />
           <button
             type="submit"
-            disabled={!input.trim()}
+            disabled={!input.trim() || !isOnline}
             className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
           >
             <SendIcon />

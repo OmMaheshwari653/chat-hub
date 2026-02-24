@@ -14,6 +14,8 @@ import {
   getDisplayUsername,
 } from "@/lib/utils";
 import { Id } from "@/convex/_generated/dataModel";
+import { SidebarSkeleton } from "./Skeletons";
+import { ErrorBanner, OfflineBanner } from "./ErrorStates";
 
 interface SidebarProps {
   onSelectConversation?: (id: Id<"conversations">) => void;
@@ -33,6 +35,11 @@ export function Sidebar({ onSelectConversation }: SidebarProps) {
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [selectedMembers, setSelectedMembers] = useState<Id<"users">[]>([]);
+  const [chatError, setChatError] = useState<string | null>(null);
+
+  // Track whether conversations actually failed to load
+  const isConversationsLoading = conversations === undefined;
+  const isUsersLoading = allUsers === undefined;
 
   // Filter users by search query (client-side)
   const searchResults =
@@ -58,22 +65,32 @@ export function Sidebar({ onSelectConversation }: SidebarProps) {
   };
 
   const handleStartChat = async (userId: Id<"users">) => {
-    const conversationId = await startDirectChat({ otherUserId: userId });
-    setShowNewChat(false);
-    setSearchQuery("");
-    navigateToChat(conversationId);
+    try {
+      setChatError(null);
+      const conversationId = await startDirectChat({ otherUserId: userId });
+      setShowNewChat(false);
+      setSearchQuery("");
+      navigateToChat(conversationId);
+    } catch {
+      setChatError("Couldn't start the chat. Please try again.");
+    }
   };
 
   const handleCreateGroup = async () => {
     if (!groupName.trim() || selectedMembers.length < 1) return;
-    const conversationId = await createGroupChat({
-      name: groupName.trim(),
-      memberIds: selectedMembers,
-    });
-    setShowNewGroup(false);
-    setGroupName("");
-    setSelectedMembers([]);
-    navigateToChat(conversationId);
+    try {
+      setChatError(null);
+      const conversationId = await createGroupChat({
+        name: groupName.trim(),
+        memberIds: selectedMembers,
+      });
+      setShowNewGroup(false);
+      setGroupName("");
+      setSelectedMembers([]);
+      navigateToChat(conversationId);
+    } catch {
+      setChatError("Failed to create group. Please try again.");
+    }
   };
 
   const toggleMember = (userId: Id<"users">) => {
@@ -87,6 +104,15 @@ export function Sidebar({ onSelectConversation }: SidebarProps) {
   return (
     <>
       <aside className="flex h-full w-full flex-col border-r border-gray-200 bg-white md:w-80 dark:border-gray-700 dark:bg-gray-800">
+        {/* Offline / error banners */}
+        <OfflineBanner />
+        {chatError && (
+          <ErrorBanner
+            message={chatError}
+            onDismiss={() => setChatError(null)}
+          />
+        )}
+
         {/* Header */}
         <div className="flex h-16 items-center justify-between border-b border-gray-200 px-4 dark:border-gray-700">
           <div className="flex items-center gap-3">
@@ -156,6 +182,9 @@ export function Sidebar({ onSelectConversation }: SidebarProps) {
                 </div>
               )}
             </div>
+          ) : isConversationsLoading ? (
+            /* Show skeleton placeholders while conversations load */
+            <SidebarSkeleton />
           ) : (
             <div className="p-2">
               <div className="mb-2 flex items-center justify-between px-2">
@@ -259,7 +288,14 @@ export function Sidebar({ onSelectConversation }: SidebarProps) {
       {showNewChat && (
         <Modal onClose={() => setShowNewChat(false)} title="New Chat">
           <div className="space-y-2">
-            {!allUsers || allUsers.length === 0 ? (
+            {isUsersLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+                <span className="ml-2 text-sm text-gray-500">
+                  Loading users...
+                </span>
+              </div>
+            ) : !allUsers || allUsers.length === 0 ? (
               <EmptyState message="No other users yet" />
             ) : (
               allUsers.map((u) => (
@@ -288,30 +324,39 @@ export function Sidebar({ onSelectConversation }: SidebarProps) {
             Select members ({selectedMembers.length} selected)
           </p>
           <div className="max-h-60 space-y-1 overflow-y-auto">
-            {allUsers?.map((u) => (
-              <button
-                key={u._id}
-                onClick={() => toggleMember(u._id)}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-lg p-3",
-                  selectedMembers.includes(u._id)
-                    ? "bg-blue-50 dark:bg-blue-900/20"
-                    : "hover:bg-gray-100 dark:hover:bg-gray-700",
-                )}
-              >
-                <UserAvatar
-                  imageUrl={u.imageUrl}
-                  name={getDisplayName(u)}
-                  size="md"
-                />
-                <span className="flex-1 text-left text-sm text-gray-900 dark:text-white">
-                  {getDisplayName(u)}
+            {isUsersLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+                <span className="ml-2 text-sm text-gray-500">
+                  Loading users...
                 </span>
-                {selectedMembers.includes(u._id) && (
-                  <CheckIcon className="h-5 w-5 text-blue-600" />
-                )}
-              </button>
-            ))}
+              </div>
+            ) : (
+              allUsers?.map((u) => (
+                <button
+                  key={u._id}
+                  onClick={() => toggleMember(u._id)}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-lg p-3",
+                    selectedMembers.includes(u._id)
+                      ? "bg-blue-50 dark:bg-blue-900/20"
+                      : "hover:bg-gray-100 dark:hover:bg-gray-700",
+                  )}
+                >
+                  <UserAvatar
+                    imageUrl={u.imageUrl}
+                    name={getDisplayName(u)}
+                    size="md"
+                  />
+                  <span className="flex-1 text-left text-sm text-gray-900 dark:text-white">
+                    {getDisplayName(u)}
+                  </span>
+                  {selectedMembers.includes(u._id) && (
+                    <CheckIcon className="h-5 w-5 text-blue-600" />
+                  )}
+                </button>
+              ))
+            )}
           </div>
           <button
             onClick={handleCreateGroup}
