@@ -220,9 +220,9 @@ export function ChatView({ conversationId }: ChatViewProps) {
               </span>
             </div>
           ) : messages.length === 0 ? (
-            <div className="flex flex-col items-center py-12 text-center">
+            <div className="flex flex-col items-center py-16 text-center">
               {conversation.isGroup ? (
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-linear-to-br from-blue-500 to-purple-500 text-2xl font-medium text-white">
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-linear-to-br from-blue-500 to-purple-500 text-3xl font-medium text-white shadow-lg">
                   {(conversation.name || "G").slice(0, 2).toUpperCase()}
                 </div>
               ) : (
@@ -235,11 +235,27 @@ export function ChatView({ conversationId }: ChatViewProps) {
               <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
                 {chatName}
               </h3>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 max-w-xs text-sm text-gray-500 dark:text-gray-400">
                 {conversation.isGroup
-                  ? "Send the first message to start the conversation"
-                  : `Start your conversation with ${chatName}`}
+                  ? "No messages yet. Send the first message to kick things off!"
+                  : `This is the beginning of your conversation with ${chatName}. Say hello! 👋`}
               </p>
+              <div className="mt-4 flex items-center gap-2 rounded-full bg-blue-50 px-4 py-2 text-xs text-blue-600 dark:bg-blue-900/20 dark:text-blue-400">
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                Type a message below to get started
+              </div>
             </div>
           ) : (
             messages.map((msg) => (
@@ -509,7 +525,7 @@ function MessageBubble({
   );
 }
 
-/* ── Typing dots ── */
+/* Typing dots */
 
 function TypingDots() {
   return (
@@ -521,7 +537,7 @@ function TypingDots() {
   );
 }
 
-/* ── Icons ── */
+/*  Icons  */
 
 function BackIcon() {
   return (

@@ -169,7 +169,25 @@ export function Sidebar({ onSelectConversation }: SidebarProps) {
                 Search Results
               </p>
               {searchResults.length === 0 ? (
-                <EmptyState message="No users found" />
+                <EmptyState
+                  icon={
+                    <svg
+                      className="h-6 w-6 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                  }
+                  message="No users found"
+                  subtitle={`No results for "${searchQuery.trim()}". Try a different name or email.`}
+                />
               ) : (
                 <div className="space-y-1">
                   {searchResults.map((u) => (
@@ -201,13 +219,29 @@ export function Sidebar({ onSelectConversation }: SidebarProps) {
 
               {!conversations || conversations.length === 0 ? (
                 <EmptyState
+                  icon={
+                    <svg
+                      className="h-6 w-6 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                      />
+                    </svg>
+                  }
                   message="No conversations yet"
+                  subtitle="Search for a user or create a group to get started."
                   action={
                     <button
                       onClick={() => setShowNewChat(true)}
-                      className="mt-2 text-sm text-blue-600 hover:underline"
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
                     >
-                      Start a chat
+                      <PlusIcon /> New Chat
                     </button>
                   }
                 />
@@ -296,7 +330,25 @@ export function Sidebar({ onSelectConversation }: SidebarProps) {
                 </span>
               </div>
             ) : !allUsers || allUsers.length === 0 ? (
-              <EmptyState message="No other users yet" />
+              <EmptyState
+                icon={
+                  <svg
+                    className="h-6 w-6 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                }
+                message="No other users yet"
+                subtitle="Invite friends to join and start chatting!"
+              />
             ) : (
               allUsers.map((u) => (
                 <UserListItem
@@ -448,15 +500,31 @@ function Modal({
 }
 
 function EmptyState({
+  icon,
   message,
+  subtitle,
   action,
 }: {
+  icon?: React.ReactNode;
   message: string;
+  subtitle?: string;
   action?: React.ReactNode;
 }) {
   return (
-    <div className="py-8 text-center">
-      <p className="text-sm text-gray-500 dark:text-gray-400">{message}</p>
+    <div className="flex flex-col items-center py-10 text-center px-4">
+      {icon && (
+        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700">
+          {icon}
+        </div>
+      )}
+      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        {message}
+      </p>
+      {subtitle && (
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          {subtitle}
+        </p>
+      )}
       {action}
     </div>
   );
