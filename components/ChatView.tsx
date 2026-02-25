@@ -162,7 +162,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
       <header className="flex h-16 items-center gap-3 border-b border-gray-200 bg-white px-4 dark:border-gray-700 dark:bg-gray-800">
         <Link
           href="/chat"
-          className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 md:hidden dark:text-gray-300 dark:hover:bg-gray-700"
+          className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
         >
           <BackIcon />
         </Link>
