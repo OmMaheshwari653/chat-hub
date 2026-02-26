@@ -34,8 +34,11 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     const lockOrientation = async () => {
       try {
-        if (screen?.orientation?.lock) {
-          await screen.orientation.lock("portrait");
+        const orientation = screen?.orientation as ScreenOrientation & {
+          lock?: (orientation: string) => Promise<void>;
+        };
+        if (orientation?.lock) {
+          await orientation.lock("portrait");
         }
       } catch {
         // Orientation lock not supported or not allowed (desktop browsers)
