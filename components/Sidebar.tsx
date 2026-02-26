@@ -31,6 +31,7 @@ export function Sidebar({ onSelectConversation }: SidebarProps) {
   const createGroupChat = useMutation(api.conversations.createGroup);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
   const [showNewChat, setShowNewChat] = useState(false);
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [groupName, setGroupName] = useState("");
@@ -43,13 +44,15 @@ export function Sidebar({ onSelectConversation }: SidebarProps) {
 
   // Filter users by search query (client-side)
   const searchResults =
-    searchQuery.trim() && allUsers
-      ? allUsers.filter((u) => {
-          const q = searchQuery.toLowerCase().trim();
-          const searchable =
-            `${u.firstName ?? ""} ${u.lastName ?? ""} ${u.username ?? ""} ${u.email ?? ""}`.toLowerCase();
-          return searchable.includes(q);
-        })
+    searchFocused && allUsers
+      ? searchQuery.trim()
+        ? allUsers.filter((u) => {
+            const q = searchQuery.toLowerCase().trim();
+            const searchable =
+              `${u.firstName ?? ""} ${u.lastName ?? ""} ${u.username ?? ""} ${u.email ?? ""}`.toLowerCase();
+            return searchable.includes(q);
+          })
+        : allUsers
       : null;
 
   const displayName = currentUser
@@ -148,59 +151,54 @@ export function Sidebar({ onSelectConversation }: SidebarProps) {
         </div>
 
         {/* Search */}
-        <div className="p-3">
+        <div className="relative p-3">
           <div className="relative">
             <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => {
+                // Small delay so click on user item registers before closing
+                setTimeout(() => setSearchFocused(false), 200);
+              }}
               placeholder="Search users..."
               className="w-full rounded-lg border-0 bg-gray-100 py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-500 focus:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
             />
           </div>
-        </div>
 
-        {/* Content: search results or conversation list */}
-        <div className="flex-1 overflow-y-auto">
-          {searchResults !== null ? (
-            <div className="p-2">
-              <p className="mb-2 px-2 text-xs font-medium uppercase text-gray-500">
-                Search Results
+          {/* Search dropdown overlay */}
+          {searchResults !== null && (
+            <div className="absolute left-0 right-0 top-full z-50 mx-3 max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800">
+              <p className="sticky top-0 z-10 border-b border-gray-200 bg-white px-3 py-2 text-xs font-medium uppercase text-gray-500 dark:border-gray-600 dark:bg-gray-800">
+                {searchQuery.trim() ? "Search Results" : "All Users"}
               </p>
               {searchResults.length === 0 ? (
-                <EmptyState
-                  icon={
-                    <svg
-                      className="h-6 w-6 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
-                  }
-                  message="No users found"
-                  subtitle={`No results for "${searchQuery.trim()}". Try a different name or email.`}
-                />
+                <p className="px-3 py-4 text-center text-sm text-gray-500">
+                  No users found for &quot;{searchQuery.trim()}&quot;
+                </p>
               ) : (
-                <div className="space-y-1">
+                <div className="space-y-0.5 p-1">
                   {searchResults.map((u) => (
                     <UserListItem
                       key={u._id}
                       user={u}
-                      onClick={() => handleStartChat(u._id)}
+                      onClick={() => {
+                        handleStartChat(u._id);
+                        setSearchFocused(false);
+                      }}
                     />
                   ))}
                 </div>
               )}
             </div>
-          ) : isConversationsLoading ? (
+          )}
+        </div>
+
+        {/* Content: conversation list */}
+        <div className="flex-1 overflow-y-auto">
+          {isConversationsLoading ? (
             /* Show skeleton placeholders while conversations load */
             <SidebarSkeleton />
           ) : (

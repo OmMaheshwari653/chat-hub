@@ -42,7 +42,7 @@ export const list = query({
           .withIndex("by_message", (q) => q.eq("messageId", msg._id))
           .collect();
 
-        // Group reactions by emoji - use array instead of object (Convex doesn't allow emoji as keys)
+        // Group reactions by emoji - (Convex doesn't allow emoji as keys)
         const reactionMap = new Map<
           string,
           { count: number; users: string[]; hasReacted: boolean }
@@ -196,20 +196,30 @@ export const toggleReaction = mutation({
 
     if (!currentUser) throw new Error("User not found");
 
-    // Check if reaction already exists
+    // Check if user already has ANY reaction on this message
     const existing = await ctx.db
       .query("reactions")
       .withIndex("by_message_user", (q) =>
         q.eq("messageId", messageId).eq("userId", currentUser._id),
       )
-      .filter((q) => q.eq(q.field("emoji"), emoji))
       .unique();
 
     if (existing) {
-      // Remove reaction
-      await ctx.db.delete(existing._id);
+      if (existing.emoji === emoji) {
+        // Same emoji dobara dabaya → toggle OFF (remove)
+        await ctx.db.delete(existing._id);
+      } else {
+        // Different emoji → purana hatao, naya lagao (replace)
+        await ctx.db.delete(existing._id);
+        await ctx.db.insert("reactions", {
+          messageId,
+          userId: currentUser._id,
+          emoji,
+          createdAt: Date.now(),
+        });
+      }
     } else {
-      // Add reaction
+      // Koi reaction nahi tha → naya add karo
       await ctx.db.insert("reactions", {
         messageId,
         userId: currentUser._id,

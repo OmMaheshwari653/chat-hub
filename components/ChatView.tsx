@@ -15,7 +15,7 @@ import {
   useNetworkStatus,
 } from "./ErrorStates";
 
-const EMOJI_REACTIONS = ["👍", "❤️", "😂", "😮", "😢"];
+const EMOJI_REACTIONS = ["👍", "❤️", "😂", "😮", "🎉", "😢"];
 
 interface ChatViewProps {
   conversationId: Id<"conversations">;
@@ -258,10 +258,11 @@ export function ChatView({ conversationId }: ChatViewProps) {
               </div>
             </div>
           ) : (
-            messages.map((msg) => (
+            messages.map((msg, idx) => (
               <MessageBubble
                 key={msg._id}
                 message={msg}
+                isFirstMessage={idx === 0}
                 onDelete={() => handleDelete(msg._id)}
                 onReact={(emoji) => handleReaction(msg._id, emoji)}
                 showReactionMenu={reactionMenuId === msg._id}
@@ -378,12 +379,14 @@ interface MessageData {
 
 function MessageBubble({
   message,
+  isFirstMessage = false,
   onDelete,
   onReact,
   showReactionMenu,
   onToggleReactionMenu,
 }: {
   message: MessageData;
+  isFirstMessage?: boolean;
   onDelete: () => void;
   onReact: (emoji: string) => void;
   showReactionMenu: boolean;
@@ -492,7 +495,8 @@ function MessageBubble({
         {showReactionMenu && (
           <div
             className={cn(
-              "absolute bottom-full mb-2 flex gap-1 rounded-full bg-white p-1 shadow-lg dark:bg-gray-800",
+              "absolute z-50 flex gap-1 rounded-full bg-white p-1 shadow-lg dark:bg-gray-800",
+              isFirstMessage ? "top-full mt-2" : "bottom-full mb-2",
               message.isOwn ? "right-0" : "left-0",
             )}
           >

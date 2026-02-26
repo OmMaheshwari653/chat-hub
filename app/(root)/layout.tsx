@@ -30,6 +30,20 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
     }
   }, [isLoaded, user, upsertUser]);
 
+  // Lock screen orientation to portrait on mobile/tablet
+  useEffect(() => {
+    const lockOrientation = async () => {
+      try {
+        if (screen?.orientation?.lock) {
+          await screen.orientation.lock("portrait");
+        }
+      } catch {
+        // Orientation lock not supported or not allowed (desktop browsers)
+      }
+    };
+    lockOrientation();
+  }, []);
+
   // Handle online status
   useEffect(() => {
     if (!isLoaded || !user) return;
